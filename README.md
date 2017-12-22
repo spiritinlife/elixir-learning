@@ -1,28 +1,12 @@
 # elixir-learning
-# traverse with git log --reverse --ancestry-path 337c3f2d569a42ebd5fcab6fef18c5e012f9be5b..master
-
-
-
-### First commit : 337c3f2d569a42ebd5fcab6fef18c5e012f9be5b
-
-
-### b190523c6eb65a3660ba968106e2647170c1981c
- - Adds basic lexer 
- - leex (lexer) and yecc(parser) to be used 
- - Makefile important
-
-
-
-### e8b810f41dcff4bb9891f8a2099fc0a32b422165
- - Ads basic arithmetic operations 
- A lexer is a software program that performs lexical analysis. Lexical analysis is the process of separating a stream of characters into different words, which in computer science we call 'tokens' . ... Parsers work at the grammatical level, lexers work at the word level.
-
+# Follow this project by going to each version, you will have the files needed from the actual old commit of elixir's project and my Readme that explains some stuff probably.
 
 _______
 
 
 # Start research from here
 ## git clone the elixir project and use git checkout with the provided commit tags to jump to history 
+# traverse with git log --reverse --ancestry-path 337c3f2d569a42ebd5fcab6fef18c5e012f9be5b..master
 ### `git checkout be7809679c30fb00e98aae58581990d79da0da35`
 #### Add test suite and start to parse the tree.
 
