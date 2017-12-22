@@ -1,14 +1,14 @@
 # elixir-learning
-# Follow this project by going to each version, you will have the files needed from the actual old commit of elixir's project and my Readme that explains some stuff probably.
-
+# Follow this project by going to each tag, you will have the files needed from the actual old commit of elixir's project and my Readme that explains some stuff probably.
+# Tags will follow very simple numbering v0,v1,v2... And when we reach a release version of the elixir project then it will be annotated in the tag.
 _______
 
 
 # Start research from here
 ## git clone the elixir project and use git checkout with the provided commit tags to jump to history 
-# traverse with git log --reverse --ancestry-path 337c3f2d569a42ebd5fcab6fef18c5e012f9be5b..master
-### `git checkout be7809679c30fb00e98aae58581990d79da0da35`
-#### Add test suite and start to parse the tree.
+## traverse with git log --reverse --ancestry-path 337c3f2d569a42ebd5fcab6fef18c5e012f9be5b..master
+## `git checkout be7809679c30fb00e98aae58581990d79da0da35`
+### Add test suite and start to parse the tree.
 
 https://arifishaq.wordpress.com/2014/01/22/playing-with-leex-and-yeec/
 http://blog.rusty.io/2011/02/08/leex-and-yecc/
@@ -268,6 +268,100 @@ To use it you just need to compile the elixir.erl file
 
 
 That concludes this commit
+
+
+## `git checkout eafbf8d9b29709bf3c05869f13593a5879b73f70`
+### Basic operations in progress.
+Nothing special about this commit just create a way to actually execute our operations.
+This done by erl_eval:expr/2 function which takes erlang syntax tree and evaluates the result. So what we do is the following
+Lexer -> Parser -> Elixir Syntax Tree -> Tranform -> Erlang Syntax Tree -> erl_eval -> result
+
+
+## `git checkout 09143d726232fec11ef289eff8ef10d4901bf73b`
+### Allow whitespaces
+
+This is very easy just change a little bit the lexer.
+Add the Definition for a Whitespace
+```
+Definitions.
+
+Digit = [0-9]
+Whitespace = [\s]
+```
+And then just tell the lexer to skip this character
+
+```
+%% Skip
+{Whitespace}+ : skip_token.
+```
+
+And we can now execute code like that `elixir:eval("1 + 2 + 3")`.
+
+Nice.
+
+## `git checkout 02882038ada642defdb2202484103647c9436b98`
+### Proper operator precedence.
+But much more happen in this commit
+
+The elixir_parser.yrl got new things
+which are the following
+```
+Nonterminals
+  expr
+  add_expr
+  mult_expr
+  unary_expr
+  max_expr
+  number
+  unary_op
+  add_op
+  mult_op
+  .
+
+  Rootsymbol expr.
+
+expr -> add_expr : '$1'.
+
+%% Arithmetic operations
+add_expr -> add_expr add_op mult_expr :
+  { binary_op, ?line('$1'), ?op('$2'), '$1', '$3' }.
+
+add_expr -> mult_expr : '$1'.
+
+mult_expr -> mult_expr mult_op unary_expr :
+  { binary_op, ?line('$1'), ?op('$2'), '$1', '$3' }.
+
+mult_expr -> unary_expr : '$1'.
+
+unary_expr -> unary_op max_expr :
+  { unary_op, ?line('$1'), ?op('$1'), '$2' }.
+
+unary_expr -> max_expr : '$1'.
+
+%% Minimum expressions
+max_expr -> number : '$1'.
+max_expr -> '(' expr ')' : '$2'.
+
+%% Unary operator
+unary_op -> '+' : '$1'.
+unary_op -> '-' : '$1'.
+
+```
+
+We see new terminals and that the rootsymbol is now expr instead of arithmetic.
+At this point elixir now is defined as language that takes expressions and those expr are the following
+
+First of all `expr -> add_expr : '$1'.`. 
+If add_expr matches the input then we have an `expr.`
+`add_expr -> add_expr add_op mult_expr : { binary_op, ?line('$1'), ?op('$2'), '$1', '$3' }.`
+We know that from previous but it is now expanded to cover cases like  2+4 + 2*3.
+It uses recursive definitions to accomplish this because
+`add_expr` could be another `add_expr add_op mult_expr` or it could a `mult_expr` which then could be `mult_expr mult_op unary_expr` or could be a `unary_expr` which again could be
+`max_expr` or a `unary_op max_expr` which again could be `number` or a `expr` which again could be all the above.
+
+> Unary operators are `+1` or `-1` or just `1`
+
+This new grammar can cover any mathematical expression.
 
 
 So make compile and we are done 
