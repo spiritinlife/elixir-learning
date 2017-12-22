@@ -2,34 +2,97 @@
 % Copyright (C) 2011 Jose Valim
 
 Nonterminals
-  arithmetic
+  grammar
+  expr_list
+  expr
+  assign_expr
+  add_expr
+  mult_expr
+  unary_expr
+  fun_expr
+  body
+  stabber
+  max_expr
+  number
+  unary_op
   add_op
   mult_op
-  number
-       .
+  .
 
 Terminals
-  float integer
-  '+' '-' '*' '/' '(' ')'
-       .
+  var float integer eol
+  'do' 'end'
+  '=' '+' '-' '*' '/' '(' ')' '->'
+  .
 
-Rootsymbol arithmetic.
+Rootsymbol grammar.
 
-Left 100 add_op.
-Left 200 mult_op.
+grammar -> expr_list : '$1'.
+grammar -> '$empty' : [].
 
-arithmetic -> arithmetic add_op arithmetic :
+expr_list -> eol : [].
+expr_list -> expr : ['$1'].
+expr_list -> expr eol : ['$1'].
+expr_list -> eol expr_list : '$2'.
+expr_list -> expr eol expr_list : ['$1'|'$3'].
+
+expr -> assign_expr : '$1'.
+
+%% Assignment
+assign_expr -> add_expr '=' assign_expr :
+  { match, ?line('$2'), '$1', '$3' }.
+
+assign_expr -> add_expr : '$1'.
+
+%% Arithmetic operations
+add_expr -> add_expr add_op mult_expr :
   { binary_op, ?line('$1'), ?op('$2'), '$1', '$3' }.
 
-arithmetic -> arithmetic mult_op arithmetic :
+add_expr -> mult_expr : '$1'.
+
+mult_expr -> mult_expr mult_op unary_expr :
   { binary_op, ?line('$1'), ?op('$2'), '$1', '$3' }.
 
-arithmetic -> '(' arithmetic ')' : '$2'.
-arithmetic -> number : '$1'.
+mult_expr -> unary_expr : '$1'.
+
+unary_expr -> unary_op max_expr :
+  { unary_op, ?line('$1'), ?op('$1'), '$2' }.
+
+unary_expr -> fun_expr : '$1'.
+
+fun_expr -> stabber expr :
+  { 'fun', ?line('$1'),
+    { clauses, [ { clause, ?line('$1'), [], [], ['$2'] } ] }
+  }.
+
+fun_expr -> stabber eol body 'end' :
+  { 'fun', ?line('$1'),
+    { clauses, [ { clause, ?line('$1'), [], [], '$3' } ] }
+  }.
+
+fun_expr -> max_expr : '$1'.
+
+%% Function bodies
+% TODO We need to handle empty body
+% body -> '$empty'  : [#nil{}].
+body -> expr_list : '$1'.
+
+%% Minimum expressions
+max_expr -> var : '$1'.
+max_expr -> number : '$1'.
+max_expr -> '(' expr ')' : '$2'.
+
+%% Stab syntax
+stabber -> '->' : '$1'.
+stabber -> 'do' : '$1'.
 
 %% Numbers
 number -> float   : '$1'.
 number -> integer : '$1'.
+
+%% Unary operator
+unary_op -> '+' : '$1'.
+unary_op -> '-' : '$1'.
 
 %% Addition operators
 add_op -> '+' : '$1'.
@@ -43,3 +106,4 @@ Erlang code.
 
 -define(op(Node), element(1, Node)).
 -define(line(Node), element(2, Node)).
+-define(char(Node), element(3, Node)).

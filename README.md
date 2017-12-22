@@ -7,6 +7,7 @@ _______
 # Start research from here
 ## git clone the elixir project and use git checkout with the provided commit tags to jump to history 
 ## traverse with git log --reverse --ancestry-path 337c3f2d569a42ebd5fcab6fef18c5e012f9be5b..master
+#v0
 ## `git checkout be7809679c30fb00e98aae58581990d79da0da35`
 ### Add test suite and start to parse the tree.
 
@@ -267,9 +268,8 @@ To use it you just need to compile the elixir.erl file
 
 
 
-That concludes this commit
 
-
+#v1
 ## `git checkout eafbf8d9b29709bf3c05869f13593a5879b73f70`
 ### Basic operations in progress.
 Nothing special about this commit just create a way to actually execute our operations.
@@ -363,6 +363,155 @@ It uses recursive definitions to accomplish this because
 
 This new grammar can cover any mathematical expression.
 
+Furthermore a lot new tests were added to arithmetic_test.erl to cover the new grammar.
+Do a make test to check them out.
+
+
+## `git checkout 50599762a8ad85d4254762a01fb3ccad2a4b873a`
+### Basic assignment works.
+
+Asignment operations added. No language is complete without assignment. 
+Lets see how it is done.
+
+First lets see the lexer
+Assignment means variables which means we need to define what elixir sees as variables.
+New Definitions in the lexer
+```
+UpperCase = [A-Z]
+LowerCase = [a-z]
+```
+
+Which are used to define the variable names
+```
+({LowerCase}|_)({UpperCase}|{LowerCase}|{Digit}|_)* : { token, { var, TokenLine, list_to_atom(TokenChars) } }.
+```
+
+What this states is that a variable can start with a lowecase character or a _ and be followed by any lower or upper case character or number or _.
+In that the lexer returns as usual a `var` as `Category`, `TokenLine` as usual and 
+`list_to_atom(TokenChars)` to return the actual name of the variable as an erlang atom.
+
+One more operator is added ofcourse and this is `=`<br>
+`=     : { token, { '=', TokenLine } }.` Pretty easy stuff!
+
+Now lets see what happens in the grammar rules.
+
+Ofcourse new nonterminal and terminal operators are added `assign_expr`, `var` and `=`.
+New important additions to the grammar
+```
+expr -> assign_expr : '$1'.
+
+%% Assignment
+assign_expr -> add_expr '=' assign_expr :
+  { match, ?line('$2'), '$1', '$3' }.
+
+assign_expr -> add_expr : '$1'.
+
+%% Minimum expressions
+max_expr -> var : '$1'.
+max_expr -> number : '$1'.
+max_expr -> '(' expr ')' : '$2'.
+```
+
+An expr can now be an assign_expr also.
+And a minimum expression can also be a var.
+The grammar here i believe is little weird because i am allowed to 
+write 2+2=2+3 and it is not the parser that gives the exception but actual erlang  that 
+does not accept this input. We can check that by entering this command to the erlang repl
+`elixir_parser:parse(element(2,elixir_lexer:string("2+2=2+3"))).`
+Not sure if this is intended so lets move on.
+
+
+
+#v2
+## `git checkout 4475b4aa92dac2dbe236a975b839cbf1f2acffb7`
+### Allow multiline expressions.
+
+```
+%% Skip
+{Comment} : skip_token.
+{Whitespace}+ : skip_token.
+
+%% Newlines (with comment and whitespace checks)
+({Comment}|{Whitespace})*(\n({Comment}|{Whitespace})*)+ : { token, { eol, TokenLine } }.
+```
+We see here the definition of a new line 
+Comment is not yet defined
+
+The grammar is updated to accept a list of expression with the use of the new `eol` terminal
+So new terminal `eol` and new nonterminals `grammar`, `expr_list`.
+Rootsymbol is now `grammar`
+
+```
+grammar -> expr_list : '$1'.
+grammar -> '$empty' : [].
+
+expr_list -> eol : [].
+expr_list -> expr : ['$1'].
+expr_list -> expr eol : ['$1'].
+expr_list -> eol expr_list : '$2'.
+expr_list -> expr eol expr_list : ['$1'|'$3'].
+```
+
+What expr_list does here is recursively split the expressions that are between new lines
+in an array of expressions. See that an expression with just a new line returns [].
+All possible cases are covered. and you can now do things like elixir:eval("a = 1\nb = 1").
+Check the tests for more.
+
+
+## `git checkout 212e90321bdafe8f456ff72aae0a12223a1717cd`
+### I HAZ FUNCTIONZ + CLOJUREZ. ( best commit message yet )
+Functions can't wait..
+
+First in the lexer we have the addition of
+`->    : { token, { '->', TokenLine } }.` which is used for functions
+and the variables now have a guard mechanism to not allow variables that are in the reserved_word list.
+
+The new terminals for the parser are
+1. ->
+2. do
+3. end
+And nonterminals
+1. fun_expr
+2. body
+3. stabber
+
+Lets see what is going on
+
+```
+unary_expr -> fun_expr : '$1'.
+
+fun_expr -> stabber expr :
+  { 'fun', ?line('$1'),
+    { clauses, [ { clause, ?line('$1'), [], [], ['$2'] } ] }
+  }.
+
+fun_expr -> stabber eol body 'end' :
+  { 'fun', ?line('$1'),
+    { clauses, [ { clause, ?line('$1'), [], [], '$3' } ] }
+  }.
+
+fun_expr -> max_expr : '$1'.
+
+%% Function bodies
+body -> expr_list : '$1'.
+
+%% Stab syntax
+stabber -> '->' : '$1'.
+stabber -> 'do' : '$1'.
+```
+
+That states that a function definitions can be any of the following
+1. -> expr
+2. do expr
+3. -> \n expr end
+4. do \n expr end
+
+Check the function_test.erl to see all the cool stuff you can do.
+Event this  `elixir:eval("b = 1; a = -> b + 2")` is valid now!
+
+A lot of interesting stuff now happen in elixir.erl which is used to transform the code to erlang ast and run it.
+
+The transform functions define all operations returned from the parser.
 
 So make compile and we are done 
 Next go to a terminal and type erl to get into erlang repl
